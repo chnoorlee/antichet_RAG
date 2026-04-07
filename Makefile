@@ -17,8 +17,9 @@
 # When to use: 首次克隆或依赖变更后执行。
 # Example: make install
 # -----------------------------------------------------------------------------
-install: ## Install dependencies via uv
-	uv pip install --system -e ".[dev]"
+install: ## Create venv and install dependencies
+	uv venv
+	uv pip install -e ".[dev]"
 
 # -----------------------------------------------------------------------------
 # Target: dev
