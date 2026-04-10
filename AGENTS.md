@@ -1,20 +1,19 @@
-# AGENTS.md — Anti-Fraud RAG System
+# AGENTS.md — Anti-Fraud RAG Library
 
 ## Project
 
-FastAPI-based Anti-Fraud RAG system with hybrid search (BM25 + vector + RRF), PostgreSQL/pgvector backend, Docker Compose deployment.
+Python library for anti-fraud RAG (Retrieval-Augmented Generation) with hybrid search (BM25 + vector + RRF), PostgreSQL/pgvector backend. **Not a FastAPI service** — import and use programmatically.
+
+**Note**: README.md describes a FastAPI service that doesn't exist. Dockerfile is broken (references `app.main:app`). Actual entrypoint is `AntiFraudRAG` class.
 
 ## Quick Commands
 
 ```bash
-make install       # Install deps via uv
-make dev           # Local dev server (hot reload on port 8000)
-make docker-up     # Start all services (app + postgres)
-make db-init       # Init database (pgvector extension + tables)
-make lint          # ruff check
+make install       # Create venv + install deps via uv
+make test          # Run pytest (auto-sets mock env vars)
+make lint          # ruff check antifraud_rag tests
 make fmt           # ruff format + fix
-make test          # Run tests (sets mock env vars automatically)
-make ci            # lint + test (mirrors CI)
+make ci            # lint + test
 ```
 
 ## Required Environment Variables
@@ -22,58 +21,71 @@ make ci            # lint + test (mirrors CI)
 ```bash
 EMBEDDING_MODEL_URL=https://your-embedding-api.com/v1/embeddings
 EMBEDDING_MODEL_API_KEY=your-key
-# Optional (have defaults):
-# EMBEDDING_DIMENSION=1536
-# HIGH_RISK_THRESHOLD=0.85
-# API_KEY=your-secret-key
+DATABASE_URL=postgresql+asyncpg://user:pass@host:5432/db
 ```
 
-Tests automatically set mock values for these vars.
+Tests automatically set mock values for `EMBEDDING_MODEL_URL` and `EMBEDDING_MODEL_API_KEY`.
 
 ## Architecture
 
 ```
-app/
-├── main.py              # FastAPI app, API key auth middleware
-├── api/v1/
-│   ├── analyze.py        # POST /api/v1/analyze (core RAG endpoint)
-│   └── data.py          # POST /api/v1/data/{case,tip}
-├── core/config.py        # Settings via pydantic-settings
+antifraud_rag/
+├── main.py              # AntiFraudRAG class (core entrypoint)
+├── schemas.py           # Pydantic response schemas
+├── core/config.py       # Settings via pydantic-settings
 ├── db/
-│   ├── models.py         # Case, Tip (SQLAlchemy + pgvector)
-│   └── session.py       # Async SQLAlchemy engine
+│   ├── models.py        # Case, Tip (SQLAlchemy + pgvector)
+│   └── session.py       # Async engine config
 └── services/
-    ├── retrieval.py      # RRF fusion, BM25, vector search
-    └── embedding.py      # Embedding API client
+    ├── retrieval.py     # BM25, vector search, RRF fusion (k=60)
+    ├── embedding.py     # Embedding API client
+    └── prompts.py       # Prompt construction helpers
 ```
 
-## Key Implementation Details
+## Usage
 
-- **RRF fusion**: `k=60`, combines BM25 + vector rankings
-- **High-risk threshold**: Score > 0.85 returns `Direct_Hit` (blocked), otherwise returns `RAG_Prompt`
-- **Database**: Uses pgvector for ANN search, TSVECTOR for full-text (currently english tokenizer; zhparser commented out in `init_db.py`)
-- **Auth**: All endpoints except `/health` require `X-API-Key` header
+```python
+from antifraud_rag import AntiFraudRAG, Settings
+from antifraud_rag.db.session import get_session
+
+settings = Settings(
+    EMBEDDING_MODEL_URL="...",
+    EMBEDDING_MODEL_API_KEY="..."
+)
+
+async with get_session() as db:
+    rag = AntiFraudRAG(db, settings=settings)
+    
+    result = await rag.analyze("可疑文本...")
+    await rag.add_case(description="...", fraud_type="电信诈骗")
+    await rag.add_tip(title="...", content="...")
+```
+
+## Database Setup
+
+```bash
+# Docker Compose (starts postgres with pgvector)
+docker-compose up -d
+
+# Init tables + pgvector extension
+python scripts/init_db.py
+```
+
+English tokenizer used for tsvector; zhparser commented out in `init_db.py`.
+
+## Key Implementation
+
+- **RRF fusion**: k=60, combines BM25 + vector rankings
+- **High-risk threshold**: score > 0.85 → Direct_Hit, else RAG_Prompt
+- **Tip embedding**: uses `title + " " + content` (differs from Case)
 - **Async**: SQLAlchemy with asyncpg driver
 
-## Running Tests
+## Testing
 
 ```bash
-# Full suite
-make test
-
-# Specific test files
-make test-api      # API endpoint tests
-make test-services # Retrieval + embedding services
-make test-config   # Settings validation
-make test-schemas  # Pydantic schema tests
+make test-cov       # Coverage report
+make test-config    # Settings tests only
+make test-services  # Retrieval + embedding
 ```
 
-## Docker Development
-
-```bash
-make docker-build  # Rebuild after deps change
-make docker-logs   # Tail app logs
-make docker-logs SVC=db  # Tail database logs
-```
-
-Database reset: `make docker-down -v && make docker-up && make db-init`
+Pytest asyncio_mode = "auto" (no explicit markers needed).
