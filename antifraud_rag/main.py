@@ -8,11 +8,16 @@ from antifraud_rag.db.models import Case, Tip
 from antifraud_rag.schemas import (
     AnalysisResponse,
     DirectHitData,
-    MatchedCase,
     RAGPromptContext,
     RAGPromptData,
 )
 from antifraud_rag.services.embedding import EmbeddingService
+from antifraud_rag.services.prompts import (
+    build_matched_cases,
+    build_rag_prompt,
+    build_relevant_cases_data,
+    build_tips_data,
+)
 from antifraud_rag.services.retrieval import RetrievalService
 
 logger = logging.getLogger(__name__)
@@ -82,7 +87,7 @@ class AntiFraudRAG:
                     prompt=f"分析用户请求: {text}",
                     context=RAGPromptContext(
                         relevant_cases=[],
-                        anti_fraud_tips=[{"title": t.title, "content": t.content} for t in tips],
+                        anti_fraud_tips=build_tips_data(tips),
                     ),
                 ),
             )
@@ -91,58 +96,27 @@ class AntiFraudRAG:
         top_score = top_result["score"]
 
         if top_score >= self.settings.HIGH_RISK_THRESHOLD:
-            matched_cases = []
-            for res in fused_results[:3]:
-                if res["score"] > 0.1:
-                    c = res["item"]
-                    matched_cases.append(
-                        MatchedCase(
-                            case_id=c.id,
-                            description=c.description,
-                            confidence=res["score"],
-                            fraud_type=c.fraud_type,
-                            key_indicators=c.keywords or [],
-                        )
-                    )
-
             return AnalysisResponse(
                 result_type="Direct_Hit",
-                data=DirectHitData(risk_level="HIGH", matched_cases=matched_cases),
+                data=DirectHitData(
+                    risk_level="HIGH",
+                    matched_cases=build_matched_cases(fused_results),
+                ),
             )
         else:
             tips = await self.retrieval_service.search_tips(text, query_embedding)
-
-            relevant_cases_data = []
-            for res in fused_results[:3]:
-                c = res["item"]
-                relevant_cases_data.append(
-                    {"description": c.description, "fraud_type": c.fraud_type}
-                )
-
-            tips_data = [{"title": t.title, "content": t.content} for t in tips]
-
-            prompt = f"""你是一个专业的反诈骗助手。请根据以下案例信息和反诈知识，
-分析用户遇到的情况是否属于诈骗，并给出专业的判断和建议。
-
-【用户咨询】
-{text}
-
-【相关案例】
-{chr(10).join([f"- {c['description']}" for c in relevant_cases_data])}
-
-【反诈知识】
-{chr(10).join([f"- {t['title']}: {t['content']}" for t in tips_data])}
-
-请给出你的分析："""
+            relevant_cases_data = build_relevant_cases_data(fused_results)
+            tips_data = build_tips_data(tips)
 
             return AnalysisResponse(
                 result_type="RAG_Prompt",
                 data=RAGPromptData(
                     risk_level="MEDIUM" if top_score > 0.5 else "LOW",
                     rrf_score=top_score,
-                    prompt=prompt,
+                    prompt=build_rag_prompt(text, relevant_cases_data, tips_data),
                     context=RAGPromptContext(
-                        relevant_cases=relevant_cases_data, anti_fraud_tips=tips_data
+                        relevant_cases=relevant_cases_data,
+                        anti_fraud_tips=tips_data,
                     ),
                 ),
             )

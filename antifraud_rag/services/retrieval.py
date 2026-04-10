@@ -53,25 +53,21 @@ class RetrievalService:
         vector_results: List[Tuple[Any, float]],
         k: int = 60,
     ) -> List[Dict[str, Any]]:
-        scores = {}
+        scores: Dict[int, Dict[str, Any]] = {}
 
-        # Rank results from BM25
         for rank, (item, _) in enumerate(bm25_results):
             scores[item.id] = {
                 "item": item,
-                "score": scores.get(item.id, {}).get("score", 0) + 1 / (k + rank + 1),
+                "score": scores.get(item.id, {"score": 0})["score"] + 1 / (k + rank + 1),
             }
 
-        # Rank results from Vector
         for rank, (item, _) in enumerate(vector_results):
             scores[item.id] = {
                 "item": item,
-                "score": scores.get(item.id, {}).get("score", 0) + 1 / (k + rank + 1),
+                "score": scores.get(item.id, {"score": 0})["score"] + 1 / (k + rank + 1),
             }
 
-        # Sort by fusion score
-        sorted_results = sorted(scores.values(), key=lambda x: x["score"], reverse=True)
-        return sorted_results
+        return sorted(scores.values(), key=lambda x: x["score"], reverse=True)
 
     async def search_tips(
         self, query_text: str, query_embedding: List[float], limit: int = 5
