@@ -3,7 +3,7 @@ from typing import Any, Dict, List, Tuple
 from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.db.models import Case, Tip
+from antifraud_rag.db.models import Case, Tip
 
 
 class RetrievalService:
@@ -25,7 +25,6 @@ class RetrievalService:
 
     async def search_cases_bm25(self, query_text: str, limit: int = 20) -> List[Tuple[Case, float]]:
         # BM25 search using PostgreSQL ts_rank
-        # Note: In production with zhparser, we'd use 'zhparser'
         sql = text("""
             SELECT id, ts_rank(content_tsv, plainto_tsquery('english', :query)) as score
             FROM cases_table

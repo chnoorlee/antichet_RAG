@@ -5,12 +5,10 @@ Pytest configuration and shared fixtures for Anti-Fraud RAG tests.
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
-from fastapi.testclient import TestClient
 from httpx import Response
 
-from app.core.config import Settings
-from app.db.models import Case, Tip
-from app.main import app
+from antifraud_rag.core.config import Settings
+from antifraud_rag.db.models import Case, Tip
 
 # Test database URL (in-memory SQLite for unit tests)
 TEST_DATABASE_URL = "sqlite+aiosqlite:///:memory:"
@@ -24,9 +22,7 @@ def mock_settings() -> Settings:
         EMBEDDING_MODEL_API_KEY="test-api-key",
         EMBEDDING_MODEL_NAME="test-embedding-model",
         EMBEDDING_DIMENSION=1536,
-        PORT=8000,
         HIGH_RISK_THRESHOLD=0.85,
-        API_KEY="test-api-key-for-testing",
         DATABASE_URL="sqlite+aiosqlite:///:memory:",
     )
 
@@ -37,7 +33,7 @@ def mock_embedding_response() -> dict:
     return {
         "data": [
             {
-                "embedding": [0.1] * 1536,  # Mock 1536-dimensional embedding
+                "embedding": [0.1] * 1536,
                 "index": 0,
             }
         ],
@@ -51,21 +47,13 @@ def mock_async_client(mock_embedding_response: dict) -> AsyncMock:
     """Create a mock async HTTP client."""
     mock_client = AsyncMock()
 
-    # Mock the response
     mock_response = MagicMock(spec=Response)
     mock_response.json.return_value = mock_embedding_response
     mock_response.raise_for_status = MagicMock()
 
-    # Configure the mock client's post method
     mock_client.post = AsyncMock(return_value=mock_response)
 
     return mock_client
-
-
-@pytest.fixture
-def test_client() -> TestClient:
-    """Create a test client for synchronous testing."""
-    return TestClient(app)
 
 
 @pytest.fixture
@@ -111,41 +99,3 @@ def sample_cases_list() -> list:
         )
         cases.append(case)
     return cases
-
-
-@pytest.fixture
-def sample_analysis_request() -> dict:
-    """Create a sample analysis request body."""
-    return {
-        "request": {
-            "text": "Someone called me asking for my bank details",
-            "source": "user_submission",
-            "metadata": {"user_id": "user123", "channel": "web"},
-        }
-    }
-
-
-@pytest.fixture
-def sample_case_create_request() -> dict:
-    """Create a sample case create request body."""
-    return {
-        "case": {
-            "description": "A new fraud case to inject",
-            "fraud_type": "investment_scam",
-            "amount": 5000.00,
-            "keywords": ["investment", "scam"],
-        }
-    }
-
-
-@pytest.fixture
-def sample_tip_create_request() -> dict:
-    """Create a sample tip create request body."""
-    return {
-        "tip": {
-            "title": "Investment Scam Alert",
-            "content": "Watch out for investments promising high returns",
-            "category": "investment_fraud",
-            "keywords": ["investment", "alert"],
-        }
-    }

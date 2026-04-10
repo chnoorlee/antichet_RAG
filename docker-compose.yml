@@ -18,7 +18,7 @@ services:
         condition: service_healthy
 
   db:
-    image: pgvector/pgvector:16-pg16
+    image: pgvector/pgvector:pg17-trixie
     environment:
       - POSTGRES_USER=antifraud_user
       - POSTGRES_PASSWORD=antifraud_pass

@@ -3,13 +3,13 @@ from typing import List
 
 import httpx
 
-from app.core.config import settings
+from antifraud_rag.core.config import Settings
 
 logger = logging.getLogger(__name__)
 
 
 class EmbeddingService:
-    def __init__(self):
+    def __init__(self, settings: Settings):
         self.url = settings.EMBEDDING_MODEL_URL
         self.api_key = settings.EMBEDDING_MODEL_API_KEY
         self.model = settings.EMBEDDING_MODEL_NAME
@@ -30,6 +30,3 @@ class EmbeddingService:
         except Exception as e:
             logger.error(f"Error getting embeddings: {e}")
             raise RuntimeError(f"Embedding API error: {str(e)}")
-
-
-embedding_service = EmbeddingService()

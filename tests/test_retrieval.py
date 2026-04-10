@@ -1,13 +1,13 @@
 """
-Unit tests for app/services/retrieval.py - RetrievalService.
+Unit tests for antifraud_rag/services/retrieval.py - RetrievalService.
 """
 
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
-from app.db.models import Case, Tip
-from app.services.retrieval import RetrievalService
+from antifraud_rag.db.models import Case, Tip
+from antifraud_rag.services.retrieval import RetrievalService
 
 
 class TestRetrievalServiceRRF:
@@ -36,7 +36,7 @@ class TestRetrievalServiceRRF:
         result = service.rrf_fusion(bm25_results, [])
 
         assert len(result) == 2
-        assert result[0]["item"].id == "case1"  # First gets highest score
+        assert result[0]["item"].id == "case1"
         assert result[1]["item"].id == "case2"
 
     def test_rrf_fusion_vector_only(self):
@@ -54,7 +54,7 @@ class TestRetrievalServiceRRF:
         result = service.rrf_fusion([], vector_results)
 
         assert len(result) == 2
-        assert result[0]["item"].id == "case2"  # First gets highest score
+        assert result[0]["item"].id == "case2"
         assert result[1]["item"].id == "case1"
 
     def test_rrf_fusion_combined_results(self):
@@ -81,7 +81,6 @@ class TestRetrievalServiceRRF:
         result = service.rrf_fusion(bm25_results, vector_results)
 
         assert len(result) == 3
-        # case2 appears in both, should rank highest
         result_ids = [r["item"].id for r in result]
         assert result_ids[0] == "case2"
 
@@ -95,11 +94,9 @@ class TestRetrievalServiceRRF:
         mock_case2 = MagicMock(spec=Case)
         mock_case2.id = "case2"
 
-        # Using larger k value
         result_default = service.rrf_fusion([(mock_case1, 0.9)], [(mock_case2, 0.9)], k=60)
         result_custom = service.rrf_fusion([(mock_case1, 0.9)], [(mock_case2, 0.9)], k=100)
 
-        # With larger k, scores should be smaller
         assert result_default[0]["score"] > result_custom[0]["score"]
 
     def test_rrf_fusion_score_calculation(self):
@@ -110,8 +107,6 @@ class TestRetrievalServiceRRF:
         mock_case = MagicMock(spec=Case)
         mock_case.id = "case1"
 
-        # Single result at rank 0
-        # Score = 1 / (k + rank + 1) = 1 / (60 + 0 + 1) = 1/61
         result = service.rrf_fusion([(mock_case, 1.0)], [])
         expected_score = 1 / (60 + 0 + 1)
         assert result[0]["score"] == pytest.approx(expected_score)
@@ -132,7 +127,6 @@ class TestRetrievalServiceRRF:
 
         result = service.rrf_fusion(bm25_results, vector_results)
 
-        # Verify sorted by score descending
         scores = [r["score"] for r in result]
         assert scores == sorted(scores, reverse=True)
 
@@ -165,7 +159,6 @@ class TestRetrievalServiceVector:
         mock_case = MagicMock(spec=Case)
         mock_case.id = "test_case"
 
-        # Mock the db.execute to return results
         mock_result = MagicMock()
         mock_result.all.return_value = [(mock_case, 0.95)]
         mock_db.execute.return_value = mock_result
@@ -203,7 +196,6 @@ class TestRetrievalServiceBM25:
         mock_case = MagicMock(spec=Case)
         mock_case.id = "bm25_test_case"
 
-        # Mock the db.execute for both SQL query and case fetch
         mock_result1 = MagicMock()
         mock_result1.all.return_value = [("bm25_test_case", 0.8)]
         mock_result2 = MagicMock()

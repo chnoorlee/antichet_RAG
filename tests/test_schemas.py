@@ -1,5 +1,5 @@
 """
-Unit tests for app/schemas/data.py - Pydantic models/schemas.
+Unit tests for antifraud_rag/schemas.py - Pydantic models/schemas.
 """
 
 from uuid import UUID
@@ -7,41 +7,14 @@ from uuid import UUID
 import pytest
 from pydantic import ValidationError
 
-from app.schemas.data import (
+from antifraud_rag.schemas import (
     AnalysisRequest,
-    AnalysisRequestBody,
-    AnalysisRequestMetadata,
     AnalysisResponse,
-    CaseCreate,
-    CaseCreateRequest,
     DirectHitData,
     MatchedCase,
     RAGPromptContext,
     RAGPromptData,
-    TipCreate,
-    TipCreateRequest,
 )
-
-
-class TestAnalysisRequestMetadata:
-    """Tests for AnalysisRequestMetadata schema."""
-
-    def test_valid_metadata(self):
-        """Test valid metadata creation."""
-        metadata = AnalysisRequestMetadata(user_id="user123", channel="mobile")
-        assert metadata.user_id == "user123"
-        assert metadata.channel == "mobile"
-
-    def test_metadata_optional_fields(self):
-        """Test metadata with optional fields omitted."""
-        metadata = AnalysisRequestMetadata()
-        assert metadata.user_id is None
-        assert metadata.channel == "web"  # default
-
-    def test_metadata_default_channel(self):
-        """Test metadata channel has correct default."""
-        metadata = AnalysisRequestMetadata(user_id="user456")
-        assert metadata.channel == "web"
 
 
 class TestAnalysisRequest:
@@ -49,14 +22,9 @@ class TestAnalysisRequest:
 
     def test_valid_request(self):
         """Test valid analysis request."""
-        request = AnalysisRequest(
-            text="Test fraud text",
-            source="api",
-            metadata=AnalysisRequestMetadata(user_id="user123"),
-        )
+        request = AnalysisRequest(text="Test fraud text", source="api")
         assert request.text == "Test fraud text"
         assert request.source == "api"
-        assert request.metadata.user_id == "user123"
 
     def test_request_required_text_field(self):
         """Test analysis request requires text field."""
@@ -67,22 +35,7 @@ class TestAnalysisRequest:
     def test_request_optional_metadata(self):
         """Test analysis request with optional metadata."""
         request = AnalysisRequest(text="Test text")
-        assert request.metadata is None
         assert request.source == "user_submission"  # default
-
-
-class TestAnalysisRequestBody:
-    """Tests for AnalysisRequestBody schema."""
-
-    def test_valid_body(self):
-        """Test valid request body."""
-        body = AnalysisRequestBody(request=AnalysisRequest(text="Test text"))
-        assert body.request.text == "Test text"
-
-    def test_body_requires_request(self):
-        """Test body requires request field."""
-        with pytest.raises(ValidationError):
-            AnalysisRequestBody()
 
 
 class TestMatchedCase:
@@ -227,80 +180,3 @@ class TestAnalysisResponse:
             data=DirectHitData(matched_cases=[]),
         )
         assert response.status == "success"
-
-
-class TestCaseCreate:
-    """Tests for CaseCreate schema."""
-
-    def test_valid_case_create(self):
-        """Test valid case creation."""
-        case = CaseCreate(
-            description="New fraud case",
-            fraud_type="investment_scam",
-            amount=5000.00,
-            keywords=["investment", "high_return"],
-        )
-        assert case.description == "New fraud case"
-        assert case.amount == 5000.00
-
-    def test_case_create_minimal(self):
-        """Test case creation with minimal fields."""
-        case = CaseCreate(description="Minimal case")
-        assert case.description == "Minimal case"
-        assert case.fraud_type is None
-        assert case.amount is None
-        assert case.keywords == []
-
-    def test_case_create_requires_description(self):
-        """Test case creation requires description."""
-        with pytest.raises(ValidationError):
-            CaseCreate()
-
-
-class TestCaseCreateRequest:
-    """Tests for CaseCreateRequest schema."""
-
-    def test_valid_case_request(self):
-        """Test valid case create request."""
-        request = CaseCreateRequest(case=CaseCreate(description="Test case"))
-        assert request.case.description == "Test case"
-
-
-class TestTipCreate:
-    """Tests for TipCreate schema."""
-
-    def test_valid_tip_create(self):
-        """Test valid tip creation."""
-        tip = TipCreate(
-            title="Warning Title",
-            content="Warning content",
-            category="fraud",
-            keywords=["warning", "alert"],
-        )
-        assert tip.title == "Warning Title"
-        assert tip.category == "fraud"
-
-    def test_tip_create_minimal(self):
-        """Test tip creation with minimal fields."""
-        tip = TipCreate(title="Title", content="Content")
-        assert tip.title == "Title"
-        assert tip.content == "Content"
-        assert tip.category is None
-        assert tip.keywords == []
-
-    def test_tip_create_requires_title_and_content(self):
-        """Test tip creation requires title and content."""
-        with pytest.raises(ValidationError):
-            TipCreate(title="Only title")
-
-        with pytest.raises(ValidationError):
-            TipCreate(content="Only content")
-
-
-class TestTipCreateRequest:
-    """Tests for TipCreateRequest schema."""
-
-    def test_valid_tip_request(self):
-        """Test valid tip create request."""
-        request = TipCreateRequest(tip=TipCreate(title="Test", content="Test content"))
-        assert request.tip.title == "Test"

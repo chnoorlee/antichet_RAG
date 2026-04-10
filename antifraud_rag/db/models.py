@@ -19,8 +19,6 @@ class Case(Base):
     embedding = Column(Vector(1536))  # Default dimension
 
     # TSVector for full-text search (BM25)
-    # Note: Using 'simple' or 'english' as placeholder.
-    # In production with zhparser, it would be 'zhparser'.
     content_tsv = Column(TSVECTOR, Computed("to_tsvector('english', description)", persisted=True))
 
     created_at = Column(DateTime(timezone=True), server_default=func.now())

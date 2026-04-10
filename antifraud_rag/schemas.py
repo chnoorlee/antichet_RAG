@@ -4,19 +4,9 @@ from uuid import UUID
 from pydantic import BaseModel
 
 
-class AnalysisRequestMetadata(BaseModel):
-    user_id: Optional[str] = None
-    channel: Optional[str] = "web"
-
-
 class AnalysisRequest(BaseModel):
     text: str
     source: str = "user_submission"
-    metadata: Optional[AnalysisRequestMetadata] = None
-
-
-class AnalysisRequestBody(BaseModel):
-    request: AnalysisRequest
 
 
 class MatchedCase(BaseModel):
@@ -49,26 +39,3 @@ class AnalysisResponse(BaseModel):
     status: str = "success"
     result_type: str  # "Direct_Hit" or "RAG_Prompt"
     data: Union[DirectHitData, RAGPromptData]
-
-
-# Data injection schemas
-class CaseCreate(BaseModel):
-    description: str
-    fraud_type: Optional[str] = None
-    amount: Optional[float] = None
-    keywords: List[str] = []
-
-
-class CaseCreateRequest(BaseModel):
-    case: CaseCreate
-
-
-class TipCreate(BaseModel):
-    title: str
-    content: str
-    category: Optional[str] = None
-    keywords: List[str] = []
-
-
-class TipCreateRequest(BaseModel):
-    tip: TipCreate

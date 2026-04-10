@@ -9,7 +9,7 @@
 
 .DEFAULT_GOAL := help
 
-.PHONY: help install dev docker-build docker-up docker-down docker-logs db-init lint fmt test test-cov test-unit test-config test-schemas test-services test-api clean ci
+.PHONY: help install lint fmt test test-cov test-config test-schemas test-services clean ci
 
 # -----------------------------------------------------------------------------
 # Target: install
@@ -22,71 +22,13 @@ install: ## Create venv and install dependencies
 	uv pip install -e ".[dev]"
 
 # -----------------------------------------------------------------------------
-# Target: dev
-# Description: 启动本地开发服务器（热重载）。
-# When to use: 本地开发调试时使用。
-# Note: 需先确保 .env 文件已配置或环境变量已导出。
-# Example: make dev
-# -----------------------------------------------------------------------------
-dev: ## Start local dev server with hot reload
-	uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
-
-# -----------------------------------------------------------------------------
-# Target: docker-build
-# Description: 构建 Docker 镜像（使用 uv 安装依赖）。
-# When to use: 部署前或更新依赖后重新构建镜像。
-# Example: make docker-build
-# -----------------------------------------------------------------------------
-docker-build: ## Build Docker image using uv
-	docker compose build
-
-# -----------------------------------------------------------------------------
-# Target: docker-up
-# Description: 启动所有 Docker Compose 服务（后台运行）。
-# When to use: 本地容器化开发或部署启动。
-# Note: 需确保 .env 文件已配置 API_KEY 等敏感变量。
-# Example: make docker-up
-# -----------------------------------------------------------------------------
-docker-up: ## Start all services via docker compose
-	docker compose up -d
-
-# -----------------------------------------------------------------------------
-# Target: docker-down
-# Description: 停止并清理 docker compose 服务。
-# When to use: 停止开发/测试环境时使用。
-# Example: make docker-down
-# -----------------------------------------------------------------------------
-docker-down: ## Stop and remove docker compose services
-	docker compose down
-
-# -----------------------------------------------------------------------------
-# Target: docker-logs
-# Description: 实时查看 app 服务日志。
-# When to use: 调试容器内服务行为时使用。
-# Example: make docker-logs
-#          make docker-logs SVC=db  # 查看 db 日志
-# -----------------------------------------------------------------------------
-docker-logs: ## Tail app logs (or SVC=db for database logs)
-	docker compose logs -f $(SVC)
-
-# -----------------------------------------------------------------------------
-# Target: db-init
-# Description: 初始化数据库（创建 extension + 表结构）。
-# When to use: 首次启动数据库后，或数据库重置后执行。
-# Note: DATABASE_URL 必须正确配置（Docker 环境会自动使用 compose 中的 db）。
-# Example: make db-init
-# -----------------------------------------------------------------------------
-db-init: ## Initialize database (create pgvector extension + tables)
-	uv run python scripts/init_db.py
-
-# -----------------------------------------------------------------------------
 # Target: lint
 # Description: 检查代码规范（ruff check）。
 # When to use: 提交前或 CI 流程中使用。
 # Example: make lint
 # -----------------------------------------------------------------------------
 lint: ## Lint code with ruff
-	ruff check .
+	ruff check antifraud_rag tests
 
 # -----------------------------------------------------------------------------
 # Target: fmt
@@ -95,8 +37,8 @@ lint: ## Lint code with ruff
 # Example: make fmt
 # -----------------------------------------------------------------------------
 fmt: ## Format and fix code with ruff
-	ruff format .
-	ruff check --fix .
+	ruff format antifraud_rag tests
+	ruff check --fix antifraud_rag tests
 
 # -----------------------------------------------------------------------------
 # Target: test
@@ -105,16 +47,12 @@ fmt: ## Format and fix code with ruff
 # Example: make test
 #          make test ARGS="-v -k test_analyze"
 #          make test-cov      # 运行测试并生成覆盖率报告
-#          make test-unit     # 仅运行单元测试
 # -----------------------------------------------------------------------------
 test: ## Run tests with pytest
 	EMBEDDING_MODEL_URL="https://test.com" EMBEDDING_MODEL_API_KEY="test-key" pytest tests/ -v $(ARGS)
 
 test-cov: ## Run tests with coverage report
-	EMBEDDING_MODEL_URL="https://test.com" EMBEDDING_MODEL_API_KEY="test-key" pytest tests/ -v --cov=app --cov-report=term-missing --cov-report=html $(ARGS)
-
-test-unit: ## Run unit tests only (excluding integration)
-	EMBEDDING_MODEL_URL="https://test.com" EMBEDDING_MODEL_API_KEY="test-key" pytest tests/ -v -m "not integration" $(ARGS)
+	EMBEDDING_MODEL_URL="https://test.com" EMBEDDING_MODEL_API_KEY="test-key" pytest tests/ -v --cov=antifraud_rag --cov-report=term-missing --cov-report=html $(ARGS)
 
 test-config: ## Run config/settings tests only
 	EMBEDDING_MODEL_URL="https://test.com" EMBEDDING_MODEL_API_KEY="test-key" pytest tests/test_config.py -v
@@ -124,9 +62,6 @@ test-schemas: ## Run schema validation tests only
 
 test-services: ## Run service layer tests only
 	EMBEDDING_MODEL_URL="https://test.com" EMBEDDING_MODEL_API_KEY="test-key" pytest tests/test_retrieval.py tests/test_embedding.py -v
-
-test-api: ## Run API endpoint tests only
-	EMBEDDING_MODEL_URL="https://test.com" EMBEDDING_MODEL_API_KEY="test-key" pytest tests/test_analyze.py tests/test_data.py tests/test_main.py -v
 
 # -----------------------------------------------------------------------------
 # Target: clean
