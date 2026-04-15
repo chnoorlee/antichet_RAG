@@ -28,17 +28,15 @@ class EmbeddingService:
                 )
                 response.raise_for_status()
                 data = response.json()
-                # Assuming OpenAI compatible response format
-                embedding = data["data"][0]["embedding"]
-
+                embedding: List[float] = data["data"][0]["embedding"]
                 if len(embedding) != self.dimension:
                     raise EmbeddingError(
-                        f"Embedding dimension mismatch: expected {self.dimension}, got {len(embedding)}"
+                        f"Embedding dimension mismatch: expected {self.dimension}, "
+                        f"got {len(embedding)}"
                     )
-
                 return embedding
+        except EmbeddingError:
+            raise
         except Exception as e:
             logger.error(f"Error getting embeddings: {e}")
-            if isinstance(e, EmbeddingError):
-                raise
-            raise EmbeddingError(f"Embedding API error: {str(e)}")
+            raise EmbeddingError(f"Embedding API error: {str(e)}") from e
